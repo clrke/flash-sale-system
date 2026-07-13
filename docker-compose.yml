@@ -1,0 +1,18 @@
+## Optional Redis for running the backend with the Redis-backed inventory store.
+## The backend defaults to an in-memory store, so this is only needed when you
+## want to exercise the distributed/atomic-Lua code path (STORE=redis).
+##
+##   docker compose up -d redis
+##   STORE=redis REDIS_URL=redis://localhost:6379 npm run dev
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: flash-sale-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
