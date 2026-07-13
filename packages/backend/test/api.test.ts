@@ -12,6 +12,7 @@ async function activeApp(totalStock = 3): Promise<FastifyInstance> {
   const store = new InMemoryInventoryStore();
   const service = new FlashSaleService({
     store,
+    product: { name: 'Test Product', tagline: '', price: '$1', imageUrl: '/product.jpg' },
     totalStock,
     saleStart: START,
     saleEnd: END,
@@ -38,6 +39,12 @@ describe('HTTP API', () => {
     expect(body.totalStock).toBe(3);
     expect(body.remainingStock).toBe(3);
     expect(body.soldCount).toBe(0);
+    expect(body.product).toEqual({
+      name: 'Test Product',
+      tagline: '',
+      price: '$1',
+      imageUrl: '/product.jpg',
+    });
   });
 
   it('POST /api/sale/purchase succeeds, then reports already_purchased', async () => {

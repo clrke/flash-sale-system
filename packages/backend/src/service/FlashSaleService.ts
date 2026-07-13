@@ -3,6 +3,18 @@ import type { InventoryStore } from '../inventory/types.js';
 export type SaleStatus = 'upcoming' | 'active' | 'ended';
 
 /**
+ * Static presentation metadata for the single product on sale. Not part of the
+ * inventory core (which only cares about counts); this is display-only data
+ * surfaced to the UI alongside the live status.
+ */
+export interface ProductInfo {
+  name: string;
+  tagline: string;
+  price: string; // display string, e.g. "$149"
+  imageUrl: string;
+}
+
+/**
  * Outcome of a purchase attempt as seen by the API/UI. Extends the three
  * inventory outcomes with the two time-window outcomes owned by this service.
  */
@@ -15,6 +27,7 @@ export type PurchaseResultStatus =
 
 export interface SaleStatusView {
   status: SaleStatus;
+  product: ProductInfo;
   totalStock: number;
   remainingStock: number;
   soldCount: number;
@@ -31,6 +44,7 @@ export interface PurchaseResult {
 
 export interface FlashSaleServiceOptions {
   store: InventoryStore;
+  product: ProductInfo;
   totalStock: number;
   saleStart: number; // epoch ms
   saleEnd: number; // epoch ms
@@ -53,6 +67,7 @@ export interface FlashSaleServiceOptions {
  */
 export class FlashSaleService {
   private readonly store: InventoryStore;
+  private readonly product: ProductInfo;
   private readonly totalStock: number;
   private readonly saleStart: number;
   private readonly saleEnd: number;
@@ -60,6 +75,7 @@ export class FlashSaleService {
 
   constructor(options: FlashSaleServiceOptions) {
     this.store = options.store;
+    this.product = options.product;
     this.totalStock = options.totalStock;
     this.saleStart = options.saleStart;
     this.saleEnd = options.saleEnd;
@@ -85,6 +101,7 @@ export class FlashSaleService {
     ]);
     return {
       status: this.saleStatusAt(nowMs),
+      product: this.product,
       totalStock: this.totalStock,
       remainingStock,
       soldCount,

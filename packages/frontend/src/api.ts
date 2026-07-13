@@ -1,7 +1,15 @@
 export type SaleState = 'upcoming' | 'active' | 'ended';
 
+export interface ProductInfo {
+  name: string;
+  tagline: string;
+  price: string;
+  imageUrl: string;
+}
+
 export interface SaleStatus {
   status: SaleState;
+  product: ProductInfo;
   totalStock: number;
   remainingStock: number;
   soldCount: number;

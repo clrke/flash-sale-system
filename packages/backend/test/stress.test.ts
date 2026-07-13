@@ -27,6 +27,7 @@ describe('stress: no oversell under a concurrent herd', () => {
   async function boot(stock: number): Promise<FastifyInstance> {
     const service = new FlashSaleService({
       store: new InMemoryInventoryStore(),
+      product: { name: 'Test Product', tagline: '', price: '$1', imageUrl: '/product.jpg' },
       totalStock: stock,
       saleStart: START,
       saleEnd: END,

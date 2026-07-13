@@ -9,6 +9,7 @@ function makeService(nowRef: { value: number }, totalStock = 10) {
   const store = new InMemoryInventoryStore();
   const service = new FlashSaleService({
     store,
+    product: { name: 'Test Product', tagline: '', price: '$1', imageUrl: '/product.jpg' },
     totalStock,
     saleStart: START,
     saleEnd: END,

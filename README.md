@@ -138,6 +138,10 @@ All settings are environment variables with sensible defaults (see `.env.example
 | `HOST`             | `0.0.0.0`                | Bind address                                                 |
 | `STORE`            | `memory`                 | `memory` (zero-dependency) or `redis`                        |
 | `REDIS_URL`        | `redis://localhost:6379` | Redis connection (used only when `STORE=redis`)              |
+| `PRODUCT_NAME`     | `Aurora Wireless Headphones` | Display name of the product on sale                      |
+| `PRODUCT_TAGLINE`  | (short tagline)          | Short marketing line shown under the name                    |
+| `PRODUCT_PRICE`    | `$149`                   | Display price string                                         |
+| `PRODUCT_IMAGE_URL`| `/product.jpg`           | Product image; defaults to a real photo bundled with the frontend, or set any absolute URL |
 | `TOTAL_STOCK`      | `100`                    | Units available for the sale                                 |
 | `SALE_START`       | now                      | ISO 8601 start; if unset, the sale starts now                |
 | `SALE_END`         | start + duration         | ISO 8601 end; if unset, computed from `SALE_DURATION_MS`      |
@@ -151,6 +155,12 @@ Returns the current sale status and inventory snapshot.
 ```json
 {
   "status": "active",
+  "product": {
+    "name": "Aurora Wireless Headphones",
+    "tagline": "Studio-grade sound, 40-hour battery, strictly limited drop.",
+    "price": "$149",
+    "imageUrl": "/product.jpg"
+  },
   "totalStock": 100,
   "remainingStock": 42,
   "soldCount": 58,

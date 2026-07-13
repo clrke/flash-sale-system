@@ -1,15 +1,32 @@
 import type { InventoryStore } from './inventory/types.js';
 import { InMemoryInventoryStore } from './inventory/InMemoryInventoryStore.js';
 import { RedisInventoryStore } from './inventory/RedisInventoryStore.js';
+import type { ProductInfo } from './service/FlashSaleService.js';
 
 export interface AppConfig {
   port: number;
   host: string;
+  product: ProductInfo;
   totalStock: number;
   saleStart: number; // epoch ms
   saleEnd: number; // epoch ms
   storeKind: 'memory' | 'redis';
   redisUrl: string;
+}
+
+/**
+ * Presentation metadata for the product on sale. Fully env-overridable so the
+ * same build can front any product. The default imageUrl is a real photo
+ * bundled with the frontend (`packages/frontend/public/product.jpg`), so the
+ * demo shows an actual product image with zero external dependencies.
+ */
+function loadProduct(): ProductInfo {
+  return {
+    name: process.env.PRODUCT_NAME ?? 'Aurora Wireless Headphones',
+    tagline: process.env.PRODUCT_TAGLINE ?? 'Studio-grade sound, 40-hour battery, strictly limited drop.',
+    price: process.env.PRODUCT_PRICE ?? '$149',
+    imageUrl: process.env.PRODUCT_IMAGE_URL ?? '/product.jpg',
+  };
 }
 
 function intFromEnv(name: string, fallback: number): number {
@@ -51,6 +68,7 @@ export function loadConfig(now: number = Date.now()): AppConfig {
   return {
     port: intFromEnv('PORT', 3000),
     host: process.env.HOST ?? '0.0.0.0',
+    product: loadProduct(),
     totalStock,
     saleStart,
     saleEnd,

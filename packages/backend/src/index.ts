@@ -8,6 +8,7 @@ async function main(): Promise<void> {
 
   const service = new FlashSaleService({
     store,
+    product: config.product,
     totalStock: config.totalStock,
     saleStart: config.saleStart,
     saleEnd: config.saleEnd,

@@ -53,6 +53,7 @@ async function main(): Promise<void> {
   const config: AppConfig = {
     port: 0, // ephemeral port
     host: '127.0.0.1',
+    product: { name: 'Stress Test Product', tagline: '', price: '$0', imageUrl: '/product.jpg' },
     totalStock: STOCK,
     saleStart: Date.now() - 1000,
     saleEnd: Date.now() + 60 * 60 * 1000,
@@ -63,6 +64,7 @@ async function main(): Promise<void> {
   const store = createStore(config);
   const service = new FlashSaleService({
     store,
+    product: config.product,
     totalStock: config.totalStock,
     saleStart: config.saleStart,
     saleEnd: config.saleEnd,
