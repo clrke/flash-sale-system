@@ -1,0 +1,65 @@
+name: CI
+
+# Runs the full quality gate on every push and PR to main:
+#   1. typecheck + unit/integration tests + build (in-memory adapter, no services)
+#   2. the same test suite against a real Redis service (atomic Lua path)
+#   3. the stress harness, which fails the build if the system ever oversells
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --include=dev
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  redis-integration:
+    name: Redis integration tests
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --include=dev
+      - name: Run the store contract against real Redis
+        env:
+          RUN_REDIS_TESTS: "1"
+          REDIS_URL: redis://localhost:6379
+        run: npm test
+
+  stress:
+    name: Stress test (no oversell under load)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --include=dev
+      - name: Assert exactly stock units sell under concurrent load
+        run: npm run stress

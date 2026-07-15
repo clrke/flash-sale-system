@@ -128,6 +128,25 @@ docker compose up -d redis
 STORE=redis REDIS_URL=redis://localhost:6379 npm run dev
 ```
 
+### Run the whole stack with Docker
+
+One command builds the backend and frontend images and runs them against Redis (the atomic-Lua path) with AOF persistence:
+
+```bash
+docker compose up --build
+# -> open http://localhost:8080
+```
+
+The backend runs as a non-root user with a `/health` liveness check; nginx serves the built frontend and reverse-proxies `/api` to the backend. This mirrors the production topology in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request: typecheck, unit and integration tests, a build, the same store contract against a real Redis service, and the stress harness (which fails the build if the system ever oversells).
+
+### Deployment
+
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) maps this design onto a production AWS topology (CloudFront and S3, ECS Fargate behind an ALB, ElastiCache for Redis, and an SQS plus Lambda path for durable orders), with scaling, fault-tolerance, CI/CD, and observability notes.
+
 ## Configuration
 
 All settings are environment variables with sensible defaults (see `.env.example`). Copy it to `.env` or export inline.

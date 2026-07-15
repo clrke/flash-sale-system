@@ -1,0 +1,17 @@
+# Keep the build context small and free of dependencies, build output, and
+# anything sensitive. node_modules is reinstalled inside the image.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+build/
+.git
+.github
+coverage
+**/*.log
+
+# Local env and private notes must never enter an image layer.
+.env
+.env.*
+!.env.example
+.saint-expeditus
+.DS_Store
