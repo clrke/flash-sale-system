@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and fill in for a real account. Networking is assumed
+# to already exist (a shared VPC and subnets).
+
+aws_region  = "ap-southeast-2"
+environment = "prod"
+
+vpc_id             = "vpc-0123456789abcdef0"
+public_subnet_ids  = ["subnet-aaa111", "subnet-bbb222"]
+private_subnet_ids = ["subnet-ccc333", "subnet-ddd444"]
+
+backend_image = "123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/flash-sale-prod-backend:1.0.0"
+
+total_stock       = 200
+api_desired_count = 2
+redis_node_type   = "cache.t4g.small"
