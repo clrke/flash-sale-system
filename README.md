@@ -1,5 +1,7 @@
 # Flash Sale System
 
+[![CI](https://github.com/clrke/flash-sale-system/actions/workflows/ci.yml/badge.svg)](https://github.com/clrke/flash-sale-system/actions/workflows/ci.yml)
+
 A high-throughput flash sale platform for a single, limited-stock product. It is built to absorb a sudden surge of concurrent buyers while guaranteeing two invariants under any load:
 
 1. **No overselling** - the number of units sold never exceeds the stock, not even by one.
