@@ -73,7 +73,12 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
   const isSaleActive = status?.status === 'active';
   const isSoldOut = status !== null && status.remainingStock <= 0;
   const trimmedUserId = userId.trim();
-  const isDisabled = !trimmedUserId || isSubmitting || !isSaleActive || isSoldOut || isChecking;
+  // Note: isChecking is deliberately NOT a submit blocker. The getSecured
+  // lookup is only an advisory hint; the server is the source of truth and
+  // returns already_purchased / sold_out authoritatively. If someone types a
+  // User ID and hits Enter before the debounced check resolves, that submit
+  // must still register rather than being silently swallowed.
+  const isDisabled = !trimmedUserId || isSubmitting || !isSaleActive || isSoldOut;
 
   /**
    * The button always names the reason it's blocked (or the action it will
