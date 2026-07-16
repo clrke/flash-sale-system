@@ -39,6 +39,19 @@ export interface SecuredResult {
 
 async function requestJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
+  // 4xx here is a deliberate business outcome, not a failure: the purchase
+  // endpoint returns 409 for sold_out/not_started/ended and 400 for
+  // invalid_user, each with a body already shaped like PurchaseResult, so
+  // callers parse those normally via result.status. A 5xx, in contrast,
+  // means an uncaught exception hit Fastify's default error handler, which
+  // returns {statusCode, error, message} - a shape that matches none of
+  // SaleStatus/PurchaseResult/SecuredResult. Without this check that body
+  // would be parsed and returned as if it were valid data (fetch() only
+  // rejects on network failure, never on HTTP status), silently corrupting
+  // UI state instead of surfacing through the existing error/catch paths.
+  if (response.status >= 500) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
   return (await response.json()) as T;
 }
 

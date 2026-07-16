@@ -30,9 +30,15 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
   const [isChecking, setIsChecking] = useState(false);
 
   const DEBOUNCE_MS = 300;
+  const trimmedUserId = userId.trim();
 
   useEffect(() => {
-    const trimmed = userId.trim();
+    // Keyed on the trimmed value, not the raw userId: a no-op edit (e.g. a
+    // trailing space typed then left, or a keystroke immediately undone)
+    // changes userId without changing trimmedUserId, and re-running this on
+    // every such edit was flipping a resolved "Already Purchased" (disabled
+    // button) back to "Checking..." (briefly clickable again) for no reason
+    // - a real regression risk for the isDisabled gate added alongside this.
 
     // Reset immediately, before the debounce fires: a stale secured value
     // from whatever was previously typed must not keep saying "Already
@@ -40,7 +46,7 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
     // new one is still in flight.
     setSecured(null);
 
-    if (!trimmed) {
+    if (!trimmedUserId) {
       setIsChecking(false);
       return;
     }
@@ -49,7 +55,7 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const result = await getSecured(trimmed);
+        const result = await getSecured(trimmedUserId);
         if (!cancelled) {
           setSecured(result.secured);
         }
@@ -68,11 +74,10 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [userId]);
+  }, [trimmedUserId]);
 
   const isSaleActive = status?.status === 'active';
   const isSoldOut = status !== null && status.remainingStock <= 0;
-  const trimmedUserId = userId.trim();
   // Note: isChecking is deliberately NOT a submit blocker. The getSecured
   // lookup is only an advisory hint; the server is the source of truth and
   // returns already_purchased / sold_out authoritatively. If someone types a
