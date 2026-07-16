@@ -19,7 +19,7 @@ const FEEDBACK_BY_RESULT: Record<PurchaseResultStatus, Feedback> = {
   sold_out: { kind: 'error', text: 'Sold out.' },
   not_started: { kind: 'info', text: "The sale hasn't started yet." },
   ended: { kind: 'info', text: 'The sale has ended.' },
-  invalid_user: { kind: 'warning', text: 'Please enter a username or email.' },
+  invalid_user: { kind: 'warning', text: 'Please enter a User ID.' },
 };
 
 export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps) {
@@ -127,7 +127,7 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
   return (
     <form className="purchase-panel" onSubmit={handleSubmit}>
       <label className="purchase-panel__label" htmlFor="userId">
-        Username or email
+        User ID
       </label>
       <input
         id="userId"
