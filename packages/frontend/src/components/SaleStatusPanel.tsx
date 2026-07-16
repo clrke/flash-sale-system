@@ -7,13 +7,14 @@ interface SaleStatusPanelProps {
 }
 
 /**
- * Badge text/style. Sold-out is not one of the backend's three time-based
- * `status` values (it can happen mid-window, before `saleEnd`), so it is
- * derived here from `remainingStock` and takes priority over "Live" - but
- * "Ended" still wins once the sale window itself has closed.
+ * Badge text/style for the non-ended states. Sold-out is not one of the
+ * backend's three time-based `status` values (it can happen mid-window,
+ * before `saleEnd`), so it is derived here from `remainingStock` and takes
+ * priority over "Live". The "ended" state is handled separately below - it
+ * gets its own compact layout rather than a stripped-down version of this
+ * one, so it doesn't render as a mostly-empty box.
  */
 function badge(status: SaleStatus): { label: string; modifier: string } {
-  if (status.status === 'ended') return { label: 'Ended', modifier: 'ended' };
   if (status.remainingStock <= 0) return { label: 'Sold Out', modifier: 'soldout' };
   if (status.status === 'upcoming') return { label: 'Upcoming', modifier: 'upcoming' };
   return { label: 'Live', modifier: 'active' };
@@ -51,6 +52,19 @@ export function SaleStatusPanel({ status, connectionError }: SaleStatusPanelProp
     );
   }
 
+  // Once the sale is over, how many sold / remained is no longer the
+  // customer's business - just that it's over. Rather than hiding pieces of
+  // the normal layout (which leaves an oddly empty box), the ended state
+  // gets its own compact centered card.
+  if (status.status === 'ended') {
+    return (
+      <div className="status-panel status-panel--ended-state">
+        <span className="status-badge status-badge--ended">Ended</span>
+        <p className="status-panel__ended-message">This flash sale has ended.</p>
+      </div>
+    );
+  }
+
   const percentRemaining = status.totalStock > 0
     ? Math.round((status.remainingStock / status.totalStock) * 100)
     : 0;
@@ -76,9 +90,7 @@ export function SaleStatusPanel({ status, connectionError }: SaleStatusPanelProp
         {status.remainingStock} of {status.totalStock} remaining
       </p>
 
-      {status.status === 'ended' ? (
-        <p className="countdown countdown--ended">Sale ended</p>
-      ) : isSoldOut ? (
+      {isSoldOut ? (
         <p className="countdown countdown--ended">Sold out</p>
       ) : (
         <p className="countdown">
