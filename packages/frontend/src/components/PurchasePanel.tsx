@@ -78,7 +78,13 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
   // returns already_purchased / sold_out authoritatively. If someone types a
   // User ID and hits Enter before the debounced check resolves, that submit
   // must still register rather than being silently swallowed.
-  const isDisabled = !trimmedUserId || isSubmitting || !isSaleActive || isSoldOut;
+  //
+  // secured, on the other hand, IS a submit blocker: every other non-"Buy
+  // Now" button label (Processing, Sale Not Started, Sale Ended, Sold Out)
+  // already disables submission, so "Already Purchased" staying clickable
+  // was the one inconsistent gap - a click there just round-tripped to the
+  // server for an already_purchased response it could have shown for free.
+  const isDisabled = !trimmedUserId || isSubmitting || !isSaleActive || isSoldOut || secured === true;
 
   /**
    * The button always names the reason it's blocked (or the action it will
