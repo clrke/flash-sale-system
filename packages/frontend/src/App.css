@@ -139,6 +139,11 @@
   color: #374151;
 }
 
+.status-badge--soldout {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .stock-bar {
   height: 8px;
   border-radius: 999px;

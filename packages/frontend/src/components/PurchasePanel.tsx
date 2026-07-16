@@ -60,6 +60,22 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
   const trimmedUserId = userId.trim();
   const isDisabled = !trimmedUserId || isSubmitting || !isSaleActive || isSoldOut;
 
+  /**
+   * The button always names the reason it's blocked (or the action it will
+   * take), rather than a static "Buy Now" that goes stale once the sale
+   * can't be acted on anymore. Priority: an in-flight request always wins;
+   * next, anything specific to *this* user (already secured); then the
+   * sale-wide reasons, most permanent first.
+   */
+  function buyButtonLabel(): string {
+    if (isSubmitting) return 'Processing...';
+    if (secured) return 'Already Purchased';
+    if (status?.status === 'upcoming') return 'Sale Not Started';
+    if (status?.status === 'ended') return 'Sale Ended';
+    if (isSoldOut) return 'Sold Out';
+    return 'Buy Now';
+  }
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (isDisabled) {
@@ -106,7 +122,7 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
       )}
 
       <button type="submit" className="buy-button" disabled={isDisabled}>
-        {isSubmitting ? 'Processing...' : 'Buy Now'}
+        {buyButtonLabel()}
       </button>
 
       {feedback && (

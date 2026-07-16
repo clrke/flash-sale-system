@@ -6,11 +6,18 @@ interface SaleStatusPanelProps {
   connectionError: string | null;
 }
 
-const STATUS_LABELS: Record<SaleStatus['status'], string> = {
-  upcoming: 'Upcoming',
-  active: 'Live',
-  ended: 'Ended',
-};
+/**
+ * Badge text/style. Sold-out is not one of the backend's three time-based
+ * `status` values (it can happen mid-window, before `saleEnd`), so it is
+ * derived here from `remainingStock` and takes priority over "Live" - but
+ * "Ended" still wins once the sale window itself has closed.
+ */
+function badge(status: SaleStatus): { label: string; modifier: string } {
+  if (status.status === 'ended') return { label: 'Ended', modifier: 'ended' };
+  if (status.remainingStock <= 0) return { label: 'Sold Out', modifier: 'soldout' };
+  if (status.status === 'upcoming') return { label: 'Upcoming', modifier: 'upcoming' };
+  return { label: 'Live', modifier: 'active' };
+}
 
 /** Formats milliseconds as `m:ss`, or `h:mm:ss` once past an hour. */
 function formatCountdown(ms: number): string {
@@ -48,14 +55,14 @@ export function SaleStatusPanel({ status, connectionError }: SaleStatusPanelProp
     ? Math.round((status.remainingStock / status.totalStock) * 100)
     : 0;
 
+  const isSoldOut = status.remainingStock <= 0;
   const countdownLabel = status.status === 'upcoming' ? 'Starts in' : 'Ends in';
+  const { label: badgeLabel, modifier: badgeModifier } = badge(status);
 
   return (
     <div className="status-panel">
       <div className="status-panel__header">
-        <span className={`status-badge status-badge--${status.status}`}>
-          {STATUS_LABELS[status.status]}
-        </span>
+        <span className={`status-badge status-badge--${badgeModifier}`}>{badgeLabel}</span>
         <span className="status-panel__sold">{status.soldCount} sold</span>
       </div>
 
@@ -71,6 +78,8 @@ export function SaleStatusPanel({ status, connectionError }: SaleStatusPanelProp
 
       {status.status === 'ended' ? (
         <p className="countdown countdown--ended">Sale ended</p>
+      ) : isSoldOut ? (
+        <p className="countdown countdown--ended">Sold out</p>
       ) : (
         <p className="countdown">
           <span className="countdown__label">{countdownLabel}</span>
