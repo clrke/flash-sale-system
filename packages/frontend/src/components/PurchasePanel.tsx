@@ -27,14 +27,25 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [secured, setSecured] = useState<boolean | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+
+  const DEBOUNCE_MS = 300;
 
   useEffect(() => {
     const trimmed = userId.trim();
+
+    // Reset immediately, before the debounce fires: a stale secured value
+    // from whatever was previously typed must not keep saying "Already
+    // Purchased" about a different identifier while the real check for the
+    // new one is still in flight.
+    setSecured(null);
+
     if (!trimmed) {
-      setSecured(null);
+      setIsChecking(false);
       return;
     }
 
+    setIsChecking(true);
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
@@ -46,8 +57,12 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
         if (!cancelled) {
           setSecured(null);
         }
+      } finally {
+        if (!cancelled) {
+          setIsChecking(false);
+        }
       }
-    }, 300);
+    }, DEBOUNCE_MS);
 
     return () => {
       cancelled = true;
@@ -58,14 +73,15 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
   const isSaleActive = status?.status === 'active';
   const isSoldOut = status !== null && status.remainingStock <= 0;
   const trimmedUserId = userId.trim();
-  const isDisabled = !trimmedUserId || isSubmitting || !isSaleActive || isSoldOut;
+  const isDisabled = !trimmedUserId || isSubmitting || !isSaleActive || isSoldOut || isChecking;
 
   /**
    * The button always names the reason it's blocked (or the action it will
    * take), rather than a static "Buy Now" that goes stale once the sale
    * can't be acted on anymore. Priority: an in-flight request always wins;
    * next, anything specific to *this* user (already secured); then the
-   * sale-wide reasons, most permanent first.
+   * sale-wide reasons, most permanent first; "Checking..." only applies
+   * once none of those more specific states are known yet.
    */
   function buyButtonLabel(): string {
     if (isSubmitting) return 'Processing...';
@@ -73,6 +89,7 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
     if (status?.status === 'upcoming') return 'Sale Not Started';
     if (status?.status === 'ended') return 'Sale Ended';
     if (isSoldOut) return 'Sold Out';
+    if (isChecking) return 'Checking...';
     return 'Buy Now';
   }
 
