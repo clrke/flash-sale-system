@@ -50,11 +50,11 @@ function timeFromEnv(name: string): number | undefined {
  * so the system runs with zero configuration (`npm run dev`):
  *   - in-memory store
  *   - 5 units of stock
- *   - a sale that starts now and runs for one hour
+ *   - a sale that starts now and runs for 3 minutes
  */
 export function loadConfig(now: number = Date.now()): AppConfig {
   const totalStock = intFromEnv('TOTAL_STOCK', 5);
-  const durationMs = intFromEnv('SALE_DURATION_MS', 60 * 60 * 1000);
+  const durationMs = intFromEnv('SALE_DURATION_MS', 3 * 60 * 1000);
 
   const saleStart = timeFromEnv('SALE_START') ?? now;
   const saleEnd = timeFromEnv('SALE_END') ?? saleStart + durationMs;

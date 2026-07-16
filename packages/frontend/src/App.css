@@ -158,25 +158,33 @@
   color: var(--color-muted);
 }
 
-.status-panel__times {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.countdown {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
   margin: 0;
+  padding: 10px 0 0;
 }
 
-.status-panel__times dt {
-  font-size: 11px;
+.countdown__label {
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-muted);
-  margin-bottom: 2px;
 }
 
-.status-panel__times dd {
-  margin: 0;
+.countdown__value {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown--ended {
+  text-align: center;
   font-size: 13px;
   font-weight: 500;
+  color: var(--color-muted);
 }
 
 .purchase-panel {

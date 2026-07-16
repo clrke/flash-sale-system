@@ -1,4 +1,5 @@
 import type { SaleStatus } from '../api';
+import { useCountdown } from '../hooks/useCountdown';
 
 interface SaleStatusPanelProps {
   status: SaleStatus | null;
@@ -11,14 +12,22 @@ const STATUS_LABELS: Record<SaleStatus['status'], string> = {
   ended: 'Ended',
 };
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+/** Formats milliseconds as `m:ss`, or `h:mm:ss` once past an hour. */
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
 }
 
 export function SaleStatusPanel({ status, connectionError }: SaleStatusPanelProps) {
+  // Hooks must run unconditionally, so this is computed before the early
+  // returns below. Counts down to saleStart while upcoming, saleEnd once live.
+  const targetIso = status ? (status.status === 'upcoming' ? status.saleStart : status.saleEnd) : undefined;
+  const remainingMs = useCountdown(targetIso, status?.serverTime);
+
   if (connectionError && !status) {
     return (
       <div className="status-panel status-panel--error">
@@ -39,6 +48,8 @@ export function SaleStatusPanel({ status, connectionError }: SaleStatusPanelProp
     ? Math.round((status.remainingStock / status.totalStock) * 100)
     : 0;
 
+  const countdownLabel = status.status === 'upcoming' ? 'Starts in' : 'Ends in';
+
   return (
     <div className="status-panel">
       <div className="status-panel__header">
@@ -58,16 +69,14 @@ export function SaleStatusPanel({ status, connectionError }: SaleStatusPanelProp
         {status.remainingStock} of {status.totalStock} remaining
       </p>
 
-      <dl className="status-panel__times">
-        <div>
-          <dt>Starts</dt>
-          <dd>{formatTime(status.saleStart)}</dd>
-        </div>
-        <div>
-          <dt>Ends</dt>
-          <dd>{formatTime(status.saleEnd)}</dd>
-        </div>
-      </dl>
+      {status.status === 'ended' ? (
+        <p className="countdown countdown--ended">Sale ended</p>
+      ) : (
+        <p className="countdown">
+          <span className="countdown__label">{countdownLabel}</span>
+          <span className="countdown__value">{formatCountdown(remainingMs)}</span>
+        </p>
+      )}
     </div>
   );
 }

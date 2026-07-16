@@ -121,7 +121,7 @@ npm run dev:web
 # -> Vite dev server, proxies /api to http://localhost:3000
 ```
 
-By default the sale starts immediately and runs for one hour with 5 units of stock, so you can buy right away. See [Configuration](#configuration) to change stock, window, or store.
+By default the sale starts immediately and runs for 3 minutes with 5 units of stock, so you can buy right away and see the full lifecycle (live to sold out or ended) without waiting. See [Configuration](#configuration) to change stock, window, or store.
 
 To exercise the Redis-backed path:
 
@@ -166,7 +166,7 @@ All settings are environment variables with sensible defaults (see `.env.example
 | `TOTAL_STOCK`      | `5`                      | Units available for the sale                                 |
 | `SALE_START`       | now                      | ISO 8601 start; if unset, the sale starts now                |
 | `SALE_END`         | start + duration         | ISO 8601 end; if unset, computed from `SALE_DURATION_MS`      |
-| `SALE_DURATION_MS` | `3600000`                | Sale length when `SALE_END` is not given (default one hour)  |
+| `SALE_DURATION_MS` | `180000`                 | Sale length when `SALE_END` is not given (default 3 minutes) |
 
 ## API reference
 
