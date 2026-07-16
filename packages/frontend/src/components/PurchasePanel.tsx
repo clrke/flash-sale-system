@@ -19,7 +19,7 @@ const FEEDBACK_BY_RESULT: Record<PurchaseResultStatus, Feedback> = {
   sold_out: { kind: 'error', text: 'Sold out.' },
   not_started: { kind: 'info', text: "The sale hasn't started yet." },
   ended: { kind: 'info', text: 'The sale has ended.' },
-  invalid_user: { kind: 'warning', text: 'Please enter a user identifier.' },
+  invalid_user: { kind: 'warning', text: 'Please enter a username or email.' },
 };
 
 export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps) {
@@ -76,6 +76,14 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
     return 'Buy Now';
   }
 
+  const handleUserIdChange = (value: string) => {
+    setUserId(value);
+    // A stale "Sold out." or "You already have an item." from a previous
+    // identifier should not linger once someone starts typing a new one -
+    // in a live demo that reads as the app being broken or confused.
+    setFeedback(null);
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (isDisabled) {
@@ -102,17 +110,18 @@ export function PurchasePanel({ status, onPurchaseSettled }: PurchasePanelProps)
   return (
     <form className="purchase-panel" onSubmit={handleSubmit}>
       <label className="purchase-panel__label" htmlFor="userId">
-        User identifier
+        Username or email
       </label>
       <input
         id="userId"
         type="text"
         className="purchase-panel__input"
-        placeholder="username or email"
+        placeholder="e.g. jane@example.com"
         value={userId}
-        onChange={(event) => setUserId(event.target.value)}
+        onChange={(event) => handleUserIdChange(event.target.value)}
         disabled={isSubmitting}
         autoComplete="off"
+        maxLength={64}
       />
 
       {secured !== null && (

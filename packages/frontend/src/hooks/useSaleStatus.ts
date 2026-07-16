@@ -27,7 +27,7 @@ export function useSaleStatus(): UseSaleStatusResult {
         }
       } catch {
         if (!cancelled) {
-          setError('Unable to reach the sale server. Retrying...');
+          setError('Having trouble connecting. Retrying...');
         }
       }
     };
