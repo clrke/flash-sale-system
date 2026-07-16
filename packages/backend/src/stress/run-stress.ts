@@ -59,6 +59,7 @@ async function main(): Promise<void> {
     saleEnd: Date.now() + 60 * 60 * 1000,
     storeKind,
     redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
+    enableResetApi: false,
   };
 
   const store = createStore(config);

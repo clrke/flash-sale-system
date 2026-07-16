@@ -12,6 +12,7 @@ export interface AppConfig {
   saleEnd: number; // epoch ms
   storeKind: 'memory' | 'redis';
   redisUrl: string;
+  enableResetApi: boolean;
 }
 
 /**
@@ -35,6 +36,12 @@ function intFromEnv(name: string, fallback: number): number {
   const parsed = Number.parseInt(raw, 10);
   if (Number.isNaN(parsed)) throw new Error(`Env ${name} must be an integer, got "${raw}"`);
   return parsed;
+}
+
+function boolFromEnv(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  return raw === '1' || raw.toLowerCase() === 'true';
 }
 
 function timeFromEnv(name: string): number | undefined {
@@ -65,6 +72,10 @@ export function loadConfig(now: number = Date.now()): AppConfig {
 
   const storeKind = (process.env.STORE ?? 'memory').toLowerCase() === 'redis' ? 'redis' : 'memory';
 
+  // Off by default: unauthenticated, and only useful for local iteration or
+  // a live demo. See BuildServerOptions.enableResetApi for the reasoning.
+  const enableResetApi = boolFromEnv('ENABLE_RESET_API', false);
+
   return {
     port: intFromEnv('PORT', 3000),
     host: process.env.HOST ?? '0.0.0.0',
@@ -74,6 +85,7 @@ export function loadConfig(now: number = Date.now()): AppConfig {
     saleEnd,
     storeKind,
     redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
+    enableResetApi,
   };
 }
 

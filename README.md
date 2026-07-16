@@ -167,6 +167,7 @@ All settings are environment variables with sensible defaults (see `.env.example
 | `SALE_START`       | now                      | ISO 8601 start; if unset, the sale starts now                |
 | `SALE_END`         | start + duration         | ISO 8601 end; if unset, computed from `SALE_DURATION_MS`      |
 | `SALE_DURATION_MS` | `180000`                 | Sale length when `SALE_END` is not given (default 3 minutes) |
+| `ENABLE_RESET_API` | `false`                  | Registers `POST /api/sale/reset` for local testing/demo (see below); off by default |
 
 ## API reference
 
@@ -206,6 +207,11 @@ Body: `{ "userId": "alice" }`
 
 ### `GET /api/sale/secured?userId=alice`
 Returns whether a user already holds a unit: `{ "userId": "alice", "secured": true }`.
+
+### `POST /api/sale/reset` (opt-in, `ENABLE_RESET_API=1`)
+Testing/demo convenience: restarts the sale clock and refills stock back to `TOTAL_STOCK`, clearing every recorded buyer. Not part of the take-home brief and not wired up at all unless explicitly enabled (returns 404 otherwise) - it is unauthenticated, so leave it off for anything beyond local iteration or a live walkthrough.
+
+Body (optional): `{ "durationMs": 180000 }` - defaults to 3 minutes if omitted. Returns the same shape as `GET /api/sale/status`, or `400` for a non-positive `durationMs`.
 
 ## Testing
 
@@ -267,3 +273,4 @@ Kept intentionally out of scope to stay focused on the core problem (correct, sc
 - No authentication: `userId` is trusted from the request, as the brief models identity as a plain username or email.
 - No payment step: "securing a unit" is the terminal action.
 - The frontend is intentionally minimal, focused on demonstrating the flow (status, buy, feedback) rather than production polish.
+- `POST /api/sale/reset` is dev/demo tooling for replaying the sale lifecycle quickly, not a feature the brief asked for. It is unauthenticated, so it stays off by default (`ENABLE_RESET_API`) and would need auth (or removal) before any real deployment.

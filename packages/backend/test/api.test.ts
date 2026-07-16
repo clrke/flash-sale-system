@@ -8,7 +8,7 @@ const START = Date.parse('2026-01-01T10:00:00.000Z');
 const END = Date.parse('2026-01-01T11:00:00.000Z');
 
 /** Build a server whose sale is mid-window (active) with the given stock. */
-async function activeApp(totalStock = 3): Promise<FastifyInstance> {
+async function activeApp(totalStock = 3, opts: { enableResetApi?: boolean } = {}): Promise<FastifyInstance> {
   const store = new InMemoryInventoryStore();
   const service = new FlashSaleService({
     store,
@@ -19,7 +19,7 @@ async function activeApp(totalStock = 3): Promise<FastifyInstance> {
     now: () => START + 60_000,
   });
   await service.init();
-  return buildServer({ service });
+  return buildServer({ service, enableResetApi: opts.enableResetApi });
 }
 
 describe('HTTP API', () => {
@@ -126,5 +126,50 @@ describe('HTTP API', () => {
     const status = await app.inject({ method: 'GET', url: '/api/sale/status' });
     expect(status.json().remainingStock).toBe(0);
     expect(status.json().soldCount).toBe(50);
+  });
+
+  it('POST /api/sale/reset is a 404 by default (not wired unless enabled)', async () => {
+    app = await activeApp(3);
+    const res = await app.inject({ method: 'POST', url: '/api/sale/reset' });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('POST /api/sale/reset refills stock and restarts the window when enabled', async () => {
+    app = await activeApp(2, { enableResetApi: true });
+
+    await app.inject({ method: 'POST', url: '/api/sale/purchase', payload: { userId: 'a' } });
+    await app.inject({ method: 'POST', url: '/api/sale/purchase', payload: { userId: 'b' } });
+    expect((await app.inject({ method: 'GET', url: '/api/sale/status' })).json().remainingStock).toBe(0);
+
+    const res = await app.inject({ method: 'POST', url: '/api/sale/reset', payload: {} });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.remainingStock).toBe(2);
+    expect(body.soldCount).toBe(0);
+    expect(Date.parse(body.saleEnd) - Date.parse(body.saleStart)).toBe(3 * 60 * 1000);
+
+    const secured = await app.inject({ method: 'GET', url: '/api/sale/secured?userId=a' });
+    expect(secured.json()).toEqual({ userId: 'a', secured: false });
+  });
+
+  it('POST /api/sale/reset accepts a custom durationMs', async () => {
+    app = await activeApp(2, { enableResetApi: true });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/sale/reset',
+      payload: { durationMs: 60_000 },
+    });
+    const body = res.json();
+    expect(Date.parse(body.saleEnd) - Date.parse(body.saleStart)).toBe(60_000);
+  });
+
+  it('POST /api/sale/reset returns 400 for an invalid durationMs', async () => {
+    app = await activeApp(2, { enableResetApi: true });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/sale/reset',
+      payload: { durationMs: -5 },
+    });
+    expect(res.statusCode).toBe(400);
   });
 });

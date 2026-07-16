@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { InMemoryInventoryStore } from '../src/inventory/InMemoryInventoryStore.js';
-import { FlashSaleService, InvalidUserIdError } from '../src/service/FlashSaleService.js';
+import { FlashSaleService, InvalidUserIdError, InvalidResetDurationError } from '../src/service/FlashSaleService.js';
 
 const START = Date.parse('2026-01-01T10:00:00.000Z');
 const END = Date.parse('2026-01-01T11:00:00.000Z');
@@ -92,5 +92,39 @@ describe('FlashSaleService sale window', () => {
       status: 'already_purchased',
       secured: true,
     });
+  });
+
+  it('reset() restarts the clock and refills stock, clearing prior buyers', async () => {
+    const now = { value: START + 60_000 };
+    const { service } = makeService(now, 2);
+    await service.init();
+
+    await service.attemptPurchase('alice');
+    expect(await service.attemptPurchase('bob')).toEqual({ status: 'success', secured: true });
+    expect((await service.getStatus()).remainingStock).toBe(0);
+
+    now.value += 1000; // reset() reads the clock at call time
+    const status = await service.reset(3 * 60 * 1000);
+
+    expect(status.status).toBe('active');
+    expect(status.remainingStock).toBe(2);
+    expect(status.soldCount).toBe(0);
+    expect(Date.parse(status.saleEnd) - Date.parse(status.saleStart)).toBe(3 * 60 * 1000);
+    expect(Date.parse(status.saleStart)).toBe(now.value);
+
+    // Previously secured buyers are forgotten - it's a full reset.
+    expect(await service.hasPurchased('alice')).toBe(false);
+
+    // The window moved, so a purchase after reset succeeds fresh.
+    expect(await service.attemptPurchase('alice')).toEqual({ status: 'success', secured: true });
+  });
+
+  it('reset() rejects a non-positive duration', async () => {
+    const now = { value: START + 60_000 };
+    const { service } = makeService(now);
+    await service.init();
+
+    await expect(service.reset(0)).rejects.toBeInstanceOf(InvalidResetDurationError);
+    await expect(service.reset(-1000)).rejects.toBeInstanceOf(InvalidResetDurationError);
   });
 });

@@ -69,8 +69,8 @@ export class FlashSaleService {
   private readonly store: InventoryStore;
   private readonly product: ProductInfo;
   private readonly totalStock: number;
-  private readonly saleStart: number;
-  private readonly saleEnd: number;
+  private saleStart: number;
+  private saleEnd: number;
   private readonly now: () => number;
 
   constructor(options: FlashSaleServiceOptions) {
@@ -137,11 +137,38 @@ export class FlashSaleService {
     if (trimmed === '') throw new InvalidUserIdError();
     return this.store.hasPurchased(trimmed);
   }
+
+  /**
+   * Testing/demo convenience: restart the sale clock (a fresh `durationMs`
+   * window starting now) and refill stock back to the originally configured
+   * `totalStock`, clearing every recorded buyer. NOT part of the take-home
+   * brief - exists purely so a reviewer or the candidate can replay the full
+   * sale lifecycle without restarting the process. The API layer is
+   * responsible for keeping this behind an explicit opt-in; the service
+   * itself has no notion of "is this safe to expose".
+   */
+  async reset(durationMs: number): Promise<SaleStatusView> {
+    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+      throw new InvalidResetDurationError();
+    }
+    const start = this.now();
+    this.saleStart = start;
+    this.saleEnd = start + durationMs;
+    await this.store.init(this.totalStock);
+    return this.getStatus();
+  }
 }
 
 export class InvalidUserIdError extends Error {
   constructor() {
     super('userId is required and must be a non-empty string');
     this.name = 'InvalidUserIdError';
+  }
+}
+
+export class InvalidResetDurationError extends Error {
+  constructor() {
+    super('durationMs must be a positive number');
+    this.name = 'InvalidResetDurationError';
   }
 }
