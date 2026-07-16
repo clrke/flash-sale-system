@@ -49,11 +49,11 @@ function timeFromEnv(name: string): number | undefined {
  * Build the app config from environment variables, applying sensible defaults
  * so the system runs with zero configuration (`npm run dev`):
  *   - in-memory store
- *   - 100 units of stock
+ *   - 5 units of stock
  *   - a sale that starts now and runs for one hour
  */
 export function loadConfig(now: number = Date.now()): AppConfig {
-  const totalStock = intFromEnv('TOTAL_STOCK', 100);
+  const totalStock = intFromEnv('TOTAL_STOCK', 5);
   const durationMs = intFromEnv('SALE_DURATION_MS', 60 * 60 * 1000);
 
   const saleStart = timeFromEnv('SALE_START') ?? now;
