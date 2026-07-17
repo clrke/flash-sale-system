@@ -9,13 +9,15 @@ export interface BuildServerOptions {
   service: FlashSaleService;
   logger?: boolean;
   /**
-   * Registers `POST /api/sale/reset`, a testing/demo convenience that
-   * restarts the sale clock and refills stock. Off by default: it is
-   * unauthenticated and would let anyone replay the sale, which is fine for
-   * local iteration but wrong for a real deployment. Wired to the
-   * `ENABLE_RESET_API` env var in `config.ts` / `index.ts`.
+   * Registers the admin/ops routes: `POST /api/sale/reset` (restart the
+   * clock and refill stock), `POST /api/sale/end` (end the sale immediately),
+   * and `POST /api/sale/revoke` (release one user's unit back to stock). Off
+   * by default: none of them are authenticated, so leaving this on in a real
+   * deployment would let anyone replay the sale, kill it early, or free up
+   * units. Fine for local iteration or an ops CLI hitting a trusted backend.
+   * Wired to the `ENABLE_ADMIN_API` env var in `config.ts` / `index.ts`.
    */
-  enableResetApi?: boolean;
+  enableAdminApi?: boolean;
 }
 
 /**
@@ -60,10 +62,11 @@ export function buildServer(options: BuildServerOptions): FastifyInstance {
     }
   });
 
-  // Testing/demo only: restart the sale window and refill stock. Not
-  // registered at all unless explicitly enabled, so it 404s by default
-  // rather than needing its own runtime guard.
-  if (options.enableResetApi) {
+  // Admin/ops only: restart the sale window and refill stock, end the sale
+  // early, or release a single user's unit. None are registered at all
+  // unless explicitly enabled, so they 404 by default rather than needing
+  // their own runtime guard.
+  if (options.enableAdminApi) {
     app.post('/api/sale/reset', async (request, reply) => {
       const body = (request.body ?? {}) as { durationMs?: unknown };
       const durationMs = typeof body.durationMs === 'number' ? body.durationMs : DEFAULT_RESET_DURATION_MS;
@@ -73,6 +76,30 @@ export function buildServer(options: BuildServerOptions): FastifyInstance {
       } catch (err) {
         if (err instanceof InvalidResetDurationError) {
           return reply.status(400).send({ error: err.message });
+        }
+        throw err;
+      }
+    });
+
+    // Kill switch: end the sale immediately regardless of the configured
+    // window. Existing winners are unaffected.
+    app.post('/api/sale/end', async (_request, reply) => {
+      const status = await service.endNow();
+      return reply.send(status);
+    });
+
+    // Customer-service correction: release one user's unit back to stock
+    // without resetting (and wiping) everyone else.
+    app.post('/api/sale/revoke', async (request, reply) => {
+      const body = (request.body ?? {}) as { userId?: unknown };
+      const userId = typeof body.userId === 'string' ? body.userId : '';
+      try {
+        const result = await service.revokePurchase(userId);
+        const httpStatus = result.status === 'revoked' ? 200 : 404;
+        return reply.status(httpStatus).send(result);
+      } catch (err) {
+        if (err instanceof InvalidUserIdError) {
+          return reply.status(400).send({ status: 'invalid_user', error: err.message });
         }
         throw err;
       }

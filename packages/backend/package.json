@@ -11,7 +11,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "stress": "tsx src/stress/run-stress.ts"
+    "stress": "tsx src/stress/run-stress.ts",
+    "sale:end": "tsx src/cli/end-sale.ts",
+    "sale:revoke": "tsx src/cli/revoke-purchase.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

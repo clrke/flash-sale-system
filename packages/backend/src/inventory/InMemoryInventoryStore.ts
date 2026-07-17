@@ -1,4 +1,4 @@
-import type { InventoryStore, PurchaseOutcome } from './types.js';
+import type { InventoryStore, PurchaseOutcome, RevokeOutcome } from './types.js';
 
 /**
  * In-memory inventory store.
@@ -37,6 +37,17 @@ export class InMemoryInventoryStore implements InventoryStore {
     this.stock -= 1;
     this.buyers.add(userId);
     return 'success';
+    // ---- end atomic critical section ----
+  }
+
+  async revokePurchase(userId: string): Promise<RevokeOutcome> {
+    // ---- begin atomic critical section (no awaits below) ----
+    if (!this.buyers.has(userId)) {
+      return 'not_found';
+    }
+    this.buyers.delete(userId);
+    this.stock += 1;
+    return 'revoked';
     // ---- end atomic critical section ----
   }
 

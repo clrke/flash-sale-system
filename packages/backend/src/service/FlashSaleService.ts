@@ -42,6 +42,11 @@ export interface PurchaseResult {
   secured: boolean;
 }
 
+export interface RevokeResult {
+  status: 'revoked' | 'not_found';
+  userId: string;
+}
+
 export interface FlashSaleServiceOptions {
   store: InventoryStore;
   product: ProductInfo;
@@ -156,6 +161,43 @@ export class FlashSaleService {
     this.saleEnd = start + durationMs;
     await this.store.init(this.totalStock);
     return this.getStatus();
+  }
+
+  /**
+   * Kill switch: end the sale immediately, regardless of the configured
+   * window, without touching stock or any recorded buyer. Existing winners
+   * keep their unit; every subsequent purchase attempt reads as `ended`.
+   *
+   * Also pulls `saleStart` back to `now` if the sale hadn't started yet, so
+   * ending an `upcoming` sale doesn't leave it stuck reporting `upcoming`
+   * until its original start time passes (`saleStatusAt` checks `upcoming`
+   * before `ended`, so a stale future `saleStart` would otherwise mask this).
+   *
+   * Caveat: like `reset()`, the sale window lives on this service instance,
+   * not in the shared store. In a horizontally-scaled deployment this only
+   * ends the sale as seen by the API node that handled the request - other
+   * nodes keep their own window until it naturally elapses. A real
+   * multi-node kill switch needs the window itself moved into the shared
+   * store (see docs/DEPLOYMENT.md); out of scope here, same as `reset()`.
+   */
+  async endNow(): Promise<SaleStatusView> {
+    const nowMs = this.now();
+    this.saleStart = Math.min(this.saleStart, nowMs);
+    this.saleEnd = nowMs;
+    return this.getStatus();
+  }
+
+  /**
+   * Customer-service correction: release a single user's unit back to stock
+   * without resetting the whole sale (which would wipe every other buyer).
+   * Returns `not_found` if the user never held a unit; stock is untouched in
+   * that case. Atomicity is delegated to `store.revokePurchase`.
+   */
+  async revokePurchase(userId: string): Promise<RevokeResult> {
+    const trimmed = typeof userId === 'string' ? userId.trim() : '';
+    if (trimmed === '') throw new InvalidUserIdError();
+    const outcome = await this.store.revokePurchase(trimmed);
+    return { status: outcome, userId: trimmed };
   }
 }
 

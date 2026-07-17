@@ -80,6 +80,48 @@ export function runInventoryContract(
       expect(await store.getSoldCount()).toBe(1);
       await store.close();
     });
+
+    it('revokePurchase releases a buyer\'s unit back to stock', async () => {
+      const store = await makeStore();
+      await store.init(5);
+      await store.attemptPurchase('alice');
+
+      expect(await store.revokePurchase('alice')).toBe('revoked');
+      expect(await store.hasPurchased('alice')).toBe(false);
+      expect(await store.getRemainingStock()).toBe(5);
+      expect(await store.getSoldCount()).toBe(0);
+
+      // The unit is genuinely back on the shelf: alice (or anyone else) can buy again.
+      expect(await store.attemptPurchase('alice')).toBe('success');
+      await store.close();
+    });
+
+    it('revokePurchase on a non-buyer reports not_found and leaves stock untouched', async () => {
+      const store = await makeStore();
+      await store.init(5);
+      await store.attemptPurchase('alice');
+
+      expect(await store.revokePurchase('never-bought')).toBe('not_found');
+      expect(await store.getRemainingStock()).toBe(4);
+      expect(await store.getSoldCount()).toBe(1);
+      await store.close();
+    });
+
+    it('revokePurchase never double-refunds under concurrent revokes of the same user', async () => {
+      const store = await makeStore();
+      await store.init(5);
+      await store.attemptPurchase('alice');
+
+      const outcomes = await Promise.all(
+        Array.from({ length: 50 }, () => store.revokePurchase('alice')),
+      );
+
+      expect(outcomes.filter((o) => o === 'revoked')).toHaveLength(1);
+      expect(outcomes.filter((o) => o === 'not_found')).toHaveLength(49);
+      expect(await store.getRemainingStock()).toBe(5);
+      expect(await store.getSoldCount()).toBe(0);
+      await store.close();
+    });
   });
 }
 

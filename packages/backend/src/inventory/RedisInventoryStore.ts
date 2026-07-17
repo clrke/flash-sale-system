@@ -1,6 +1,7 @@
 import { Redis } from 'ioredis';
-import type { InventoryStore, PurchaseOutcome } from './types.js';
+import type { InventoryStore, PurchaseOutcome, RevokeOutcome } from './types.js';
 import { PURCHASE_LUA } from './purchaseScript.js';
+import { REVOKE_LUA } from './revokeScript.js';
 
 export interface RedisInventoryStoreOptions {
   /** Redis connection string, e.g. redis://localhost:6379 */
@@ -43,11 +44,15 @@ export class RedisInventoryStore implements InventoryStore {
       this.ownsClient = true;
     }
 
-    // Register the Lua script as a custom command. ioredis handles EVALSHA with
-    // an automatic fallback to EVAL if the script isn't cached yet.
+    // Register the Lua scripts as custom commands. ioredis handles EVALSHA
+    // with an automatic fallback to EVAL if the script isn't cached yet.
     this.redis.defineCommand('flashPurchase', {
       numberOfKeys: 2,
       lua: PURCHASE_LUA,
+    });
+    this.redis.defineCommand('flashRevoke', {
+      numberOfKeys: 2,
+      lua: REVOKE_LUA,
     });
   }
 
@@ -81,6 +86,25 @@ export class RedisInventoryStore implements InventoryStore {
         return 'sold_out';
       default:
         throw new Error(`Unexpected purchase script return code: ${code}`);
+    }
+  }
+
+  async revokePurchase(userId: string): Promise<RevokeOutcome> {
+    const code = (await (this.redis as unknown as {
+      flashRevoke(
+        stockKey: string,
+        buyersKey: string,
+        userId: string,
+      ): Promise<number>;
+    }).flashRevoke(this.stockKey, this.buyersKey, userId));
+
+    switch (code) {
+      case 1:
+        return 'revoked';
+      case 0:
+        return 'not_found';
+      default:
+        throw new Error(`Unexpected revoke script return code: ${code}`);
     }
   }
 

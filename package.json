@@ -13,6 +13,8 @@
     "build": "npm run build --workspace @flash-sale/backend && npm run build --workspace @flash-sale/frontend",
     "test": "npm run test --workspace @flash-sale/backend",
     "stress": "npm run stress --workspace @flash-sale/backend",
+    "sale:end": "npm run sale:end --workspace @flash-sale/backend",
+    "sale:revoke": "npm run sale:revoke --workspace @flash-sale/backend --",
     "typecheck": "npm run typecheck --workspace @flash-sale/backend"
   },
   "engines": {

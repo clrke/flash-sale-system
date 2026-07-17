@@ -89,12 +89,16 @@ flash-sale-system/
 │   │   │   │   ├── types.ts                  # InventoryStore interface + outcomes
 │   │   │   │   ├── InMemoryInventoryStore.ts # event-loop-atomic adapter
 │   │   │   │   ├── RedisInventoryStore.ts     # Redis + Lua adapter
-│   │   │   │   └── purchaseScript.ts          # the atomic Lua script
+│   │   │   │   ├── purchaseScript.ts          # the atomic purchase Lua script
+│   │   │   │   └── revokeScript.ts            # the atomic revoke Lua script
 │   │   │   ├── service/FlashSaleService.ts    # sale window + validation + policy
 │   │   │   ├── server.ts                      # Fastify app factory (stateless)
 │   │   │   ├── config.ts                      # env -> config, store factory
 │   │   │   ├── index.ts                       # entrypoint
-│   │   │   └── stress/run-stress.ts           # standalone HTTP stress harness
+│   │   │   ├── stress/run-stress.ts           # standalone HTTP stress harness
+│   │   │   └── cli/                           # ops CLI scripts (admin API clients)
+│   │   │       ├── end-sale.ts                # npm run sale:end
+│   │   │       └── revoke-purchase.ts         # npm run sale:revoke -- <userId>
 │   │   └── test/
 │   │       ├── contract.ts                    # shared InventoryStore contract
 │   │       ├── inventory.test.ts              # in-memory unit + concurrency
@@ -168,7 +172,7 @@ All settings are environment variables with sensible defaults (see `.env.example
 | `SALE_START`       | now                      | ISO 8601 start; if unset, the sale starts now                |
 | `SALE_END`         | start + duration         | ISO 8601 end; if unset, computed from `SALE_DURATION_MS`      |
 | `SALE_DURATION_MS` | `180000`                 | Sale length when `SALE_END` is not given (default 3 minutes) |
-| `ENABLE_RESET_API` | `false`                  | Registers `POST /api/sale/reset` for local testing/demo (see below); off by default |
+| `ENABLE_ADMIN_API` | `false`                  | Registers `POST /api/sale/reset`, `POST /api/sale/end`, and `POST /api/sale/revoke` (see below); off by default |
 
 ## API reference
 
@@ -209,10 +213,32 @@ Body: `{ "userId": "alice" }`
 ### `GET /api/sale/secured?userId=alice`
 Returns whether a user already holds a unit: `{ "userId": "alice", "secured": true }`.
 
-### `POST /api/sale/reset` (opt-in, `ENABLE_RESET_API=1`)
-Testing/demo convenience: restarts the sale clock and refills stock back to `TOTAL_STOCK`, clearing every recorded buyer. Not part of the take-home brief and not wired up at all unless explicitly enabled (returns 404 otherwise) - it is unauthenticated, so leave it off for anything beyond local iteration or a live walkthrough.
+The following three endpoints are admin/ops tooling, gated behind `ENABLE_ADMIN_API=1` (returns `404` otherwise - none are wired up unless explicitly enabled). None are authenticated, so leave this off for anything beyond local iteration, a trusted ops CLI, or a live walkthrough.
+
+### `POST /api/sale/reset` (opt-in, `ENABLE_ADMIN_API=1`)
+Testing/demo convenience: restarts the sale clock and refills stock back to `TOTAL_STOCK`, clearing every recorded buyer.
 
 Body (optional): `{ "durationMs": 180000 }` - defaults to 3 minutes if omitted. Returns the same shape as `GET /api/sale/status`, or `400` for a non-positive `durationMs`.
+
+### `POST /api/sale/end` (opt-in, `ENABLE_ADMIN_API=1`)
+Kill switch: ends the sale immediately, regardless of the configured window. Existing winners keep their unit; stock and the buyer set are untouched - only the window moves. Every purchase attempt after this reads as `ended`. No body. Returns the same shape as `GET /api/sale/status`.
+
+CLI wrapper: `npm run sale:end` (or `BASE_URL=https://sale.example.com npm run sale:end` against a non-local backend).
+
+**Caveat:** the sale window lives on the backend process that answers the request, not in the shared store. Behind a load balancer with multiple stateless API nodes, this only ends the sale as seen by whichever node handles it - the others keep running until their own window naturally elapses. Same limitation `POST /api/sale/reset` already has; a true multi-node kill switch needs the window moved into the shared store (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
+
+### `POST /api/sale/revoke` (opt-in, `ENABLE_ADMIN_API=1`)
+Customer-service correction: releases one user's unit back to stock - wrong email, duplicate account, chargeback - without resetting (and wiping) every other buyer. Body: `{ "userId": "alice" }`.
+
+| Outcome                     | HTTP | Body                                          |
+| ---------------------------- | ---- | ---------------------------------------------- |
+| Revoked                      | 200  | `{ "status": "revoked", "userId": "alice" }`   |
+| User never bought            | 404  | `{ "status": "not_found", "userId": "alice" }` |
+| Missing user id              | 400  | `{ "status": "invalid_user", "error": "..." }` |
+
+CLI wrapper: `npm run sale:revoke -- alice@example.com`.
+
+Unlike the sale window, the buyer set lives in the shared store (Redis in production), so this is atomic and globally consistent across every API node - no multi-node caveat here. The underlying `revokePurchase` operation is part of the `InventoryStore` contract, so both the in-memory and Redis adapters implement it atomically (a Lua script for Redis, mirroring `attemptPurchase`).
 
 ## Exporting buyer data
 
@@ -222,7 +248,7 @@ There is no API endpoint that lists every buyer (see [Deliberate simplifications
 { echo "userId"; redis-cli -u "${REDIS_URL:-redis://localhost:6379}" SMEMBERS flashsale:buyers; } > buyers.csv
 ```
 
-This only works against the Redis store - with the default `STORE=memory` local dev mode, the buyer set lives inside the Node process and is not reachable from outside it. For routine, authenticated access to buyer data, add an admin endpoint or a durable orders table instead of relying on direct Redis access (see [Scaling and production notes](#scaling-and-production-notes) and the SQS/Lambda/durable-orders path in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)); this command is a stop-gap for local/ops use, not something to expose unauthenticated the way `/api/sale/reset` deliberately is not.
+This only works against the Redis store - with the default `STORE=memory` local dev mode, the buyer set lives inside the Node process and is not reachable from outside it. There is still no endpoint that *lists* every buyer (only single-user lookup via `GET /api/sale/secured`, or the single-user [`POST /api/sale/revoke`](#post-apisalerevoke-opt-in-enable_admin_api1) above). For routine, authenticated bulk access to buyer data, add a list-buyers admin endpoint or a durable orders table instead of relying on direct Redis access (see [Scaling and production notes](#scaling-and-production-notes) and the SQS/Lambda/durable-orders path in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)); this command is a stop-gap for local/ops use, not something to expose unauthenticated the way the admin endpoints deliberately are not.
 
 ## Testing
 
@@ -284,4 +310,6 @@ Kept intentionally out of scope to stay focused on the core problem (correct, sc
 - No authentication: `userId` is trusted from the request, as the brief models identity as a plain username or email.
 - No payment step: "securing a unit" is the terminal action.
 - The frontend is intentionally minimal, focused on demonstrating the flow (status, buy, feedback) rather than production polish.
-- `POST /api/sale/reset` is dev/demo tooling for replaying the sale lifecycle quickly, not a feature the brief asked for. It is unauthenticated, so it stays off by default (`ENABLE_RESET_API`) and would need auth (or removal) before any real deployment.
+- `POST /api/sale/reset`, `POST /api/sale/end`, and `POST /api/sale/revoke` are dev/demo/ops tooling, not features the brief asked for. All three are unauthenticated, so they stay off by default (`ENABLE_ADMIN_API`) and would need real auth in front of them before any production deployment.
+- There is still no endpoint to list every buyer, only single-user lookup and single-user revoke - see [Exporting buyer data](#exporting-buyer-data).
+- `endNow()` (the sale-end kill switch) moves the sale window, which lives on the API process handling the request, not in the shared store - it does not propagate across multiple horizontally-scaled API nodes. `revokePurchase` has no such gap since it goes through the shared `InventoryStore`.

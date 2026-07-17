@@ -12,7 +12,7 @@ export interface AppConfig {
   saleEnd: number; // epoch ms
   storeKind: 'memory' | 'redis';
   redisUrl: string;
-  enableResetApi: boolean;
+  enableAdminApi: boolean;
 }
 
 /**
@@ -72,9 +72,10 @@ export function loadConfig(now: number = Date.now()): AppConfig {
 
   const storeKind = (process.env.STORE ?? 'memory').toLowerCase() === 'redis' ? 'redis' : 'memory';
 
-  // Off by default: unauthenticated, and only useful for local iteration or
-  // a live demo. See BuildServerOptions.enableResetApi for the reasoning.
-  const enableResetApi = boolFromEnv('ENABLE_RESET_API', false);
+  // Off by default: unauthenticated, and only useful for local iteration,
+  // ops CLI use, or a live demo. See BuildServerOptions.enableAdminApi for
+  // the reasoning.
+  const enableAdminApi = boolFromEnv('ENABLE_ADMIN_API', false);
 
   return {
     port: intFromEnv('PORT', 3000),
@@ -85,7 +86,7 @@ export function loadConfig(now: number = Date.now()): AppConfig {
     saleEnd,
     storeKind,
     redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
-    enableResetApi,
+    enableAdminApi,
   };
 }
 

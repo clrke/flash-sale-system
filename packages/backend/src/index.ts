@@ -15,7 +15,7 @@ async function main(): Promise<void> {
   });
   await service.init();
 
-  const app = buildServer({ service, logger: true, enableResetApi: config.enableResetApi });
+  const app = buildServer({ service, logger: true, enableAdminApi: config.enableAdminApi });
 
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`Received ${signal}, shutting down`);
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
       totalStock: config.totalStock,
       saleStart: new Date(config.saleStart).toISOString(),
       saleEnd: new Date(config.saleEnd).toISOString(),
-      resetApi: config.enableResetApi ? 'enabled' : 'disabled',
+      adminApi: config.enableAdminApi ? 'enabled' : 'disabled',
     },
     'Flash sale backend ready',
   );

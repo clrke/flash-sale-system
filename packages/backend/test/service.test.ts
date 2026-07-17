@@ -127,4 +127,66 @@ describe('FlashSaleService sale window', () => {
     await expect(service.reset(0)).rejects.toBeInstanceOf(InvalidResetDurationError);
     await expect(service.reset(-1000)).rejects.toBeInstanceOf(InvalidResetDurationError);
   });
+
+  it('endNow() ends an active sale immediately without touching stock or buyers', async () => {
+    const now = { value: START + 60_000 };
+    const { service } = makeService(now, 3);
+    await service.init();
+
+    await service.attemptPurchase('alice');
+    expect((await service.getStatus()).status).toBe('active');
+
+    const status = await service.endNow();
+    expect(status.status).toBe('ended');
+    expect(status.remainingStock).toBe(2);
+    expect(status.soldCount).toBe(1);
+
+    // Existing winner keeps their unit, but nobody new can buy anymore.
+    expect(await service.hasPurchased('alice')).toBe(true);
+    expect(await service.attemptPurchase('bob')).toEqual({ status: 'ended', secured: false });
+  });
+
+  it('endNow() ends an upcoming sale immediately instead of leaving it stuck as upcoming', async () => {
+    const now = { value: START - 60_000 }; // before saleStart: sale hasn't opened yet
+    const { service } = makeService(now, 3);
+    await service.init();
+    expect((await service.getStatus()).status).toBe('upcoming');
+
+    const status = await service.endNow();
+    expect(status.status).toBe('ended');
+    expect(await service.attemptPurchase('alice')).toEqual({ status: 'ended', secured: false });
+  });
+
+  it('revokePurchase() releases a unit and lets the user (or someone else) buy again', async () => {
+    const now = { value: START + 60_000 };
+    const { service } = makeService(now, 2);
+    await service.init();
+
+    await service.attemptPurchase('alice');
+    expect((await service.getStatus()).remainingStock).toBe(1);
+
+    const result = await service.revokePurchase('alice');
+    expect(result).toEqual({ status: 'revoked', userId: 'alice' });
+    expect(await service.hasPurchased('alice')).toBe(false);
+    expect((await service.getStatus()).remainingStock).toBe(2);
+
+    expect(await service.attemptPurchase('alice')).toEqual({ status: 'success', secured: true });
+  });
+
+  it('revokePurchase() reports not_found for a user who never bought, and trims the id', async () => {
+    const now = { value: START + 60_000 };
+    const { service } = makeService(now, 2);
+    await service.init();
+
+    expect(await service.revokePurchase(' ghost ')).toEqual({ status: 'not_found', userId: 'ghost' });
+    expect((await service.getStatus()).remainingStock).toBe(2);
+  });
+
+  it('revokePurchase() rejects empty / whitespace user ids', async () => {
+    const now = { value: START + 60_000 };
+    const { service } = makeService(now);
+    await service.init();
+
+    await expect(service.revokePurchase('   ')).rejects.toBeInstanceOf(InvalidUserIdError);
+  });
 });
