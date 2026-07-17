@@ -15,6 +15,7 @@
     "stress": "npm run stress --workspace @flash-sale/backend",
     "sale:end": "npm run sale:end --workspace @flash-sale/backend",
     "sale:revoke": "npm run sale:revoke --workspace @flash-sale/backend --",
+    "sale:reset": "npm run sale:reset --workspace @flash-sale/backend --",
     "typecheck": "npm run typecheck --workspace @flash-sale/backend"
   },
   "engines": {

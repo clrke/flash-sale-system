@@ -98,7 +98,8 @@ flash-sale-system/
 │   │   │   ├── stress/run-stress.ts           # standalone HTTP stress harness
 │   │   │   └── cli/                           # ops CLI scripts (admin API clients)
 │   │   │       ├── end-sale.ts                # npm run sale:end
-│   │   │       └── revoke-purchase.ts         # npm run sale:revoke -- <userId>
+│   │   │       ├── revoke-purchase.ts         # npm run sale:revoke -- <userId>
+│   │   │       └── reset-sale.ts              # npm run sale:reset -- [durationMs] (backs up buyers first)
 │   │   └── test/
 │   │       ├── contract.ts                    # shared InventoryStore contract
 │   │       ├── inventory.test.ts              # in-memory unit + concurrency
@@ -216,9 +217,11 @@ Returns whether a user already holds a unit: `{ "userId": "alice", "secured": tr
 The following three endpoints are admin/ops tooling, gated behind `ENABLE_ADMIN_API=1` (returns `404` otherwise - none are wired up unless explicitly enabled). None are authenticated, so leave this off for anything beyond local iteration, a trusted ops CLI, or a live walkthrough.
 
 ### `POST /api/sale/reset` (opt-in, `ENABLE_ADMIN_API=1`)
-Testing/demo convenience: restarts the sale clock and refills stock back to `TOTAL_STOCK`, clearing every recorded buyer.
+Testing/demo convenience: restarts the sale clock and refills stock back to `TOTAL_STOCK`, clearing every recorded buyer with **no snapshot** - the buyer set is simply gone after this call.
 
 Body (optional): `{ "durationMs": 180000 }` - defaults to 3 minutes if omitted. Returns the same shape as `GET /api/sale/status`, or `400` for a non-positive `durationMs`.
+
+CLI wrapper (recommended over calling the endpoint directly): `npm run sale:reset` (or `npm run sale:reset -- 60000` for a custom `durationMs`). Unlike the raw endpoint, this backs up the buyer set to a timestamped local CSV *before* resetting - see [Exporting buyer data](#exporting-buyer-data) for exactly what it does and its caveats.
 
 ### `POST /api/sale/end` (opt-in, `ENABLE_ADMIN_API=1`)
 Kill switch: ends the sale immediately, regardless of the configured window. Existing winners keep their unit; stock and the buyer set are untouched - only the window moves. Every purchase attempt after this reads as `ended`. No body. Returns the same shape as `GET /api/sale/status`.
@@ -249,6 +252,21 @@ There is no API endpoint that lists every buyer (see [Deliberate simplifications
 ```
 
 This only works against the Redis store - with the default `STORE=memory` local dev mode, the buyer set lives inside the Node process and is not reachable from outside it. There is still no endpoint that *lists* every buyer (only single-user lookup via `GET /api/sale/secured`, or the single-user [`POST /api/sale/revoke`](#post-apisalerevoke-opt-in-enable_admin_api1) above). For routine, authenticated bulk access to buyer data, add a list-buyers admin endpoint or a durable orders table instead of relying on direct Redis access (see [Scaling and production notes](#scaling-and-production-notes) and the SQS/Lambda/durable-orders path in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)); this command is a stop-gap for local/ops use, not something to expose unauthenticated the way the admin endpoints deliberately are not.
+
+### Backing up before a reset
+
+`POST /api/sale/reset` clears the buyer set with no snapshot, which is a real footgun if it's ever used as an ops action against a live Redis-backed sale rather than pure local iteration. `npm run sale:reset` wraps it safely:
+
+```bash
+npm run sale:reset                 # backs up, then resets with the default 3-minute window
+npm run sale:reset -- 60000        # backs up, then resets with a custom durationMs
+REDIS_URL=redis://prod-redis:6379 BASE_URL=https://sale.example.com npm run sale:reset
+```
+
+It reads the buyer set straight from Redis (same key the command above uses) and writes it to a timestamped `buyers-backup-<timestamp>.csv` **on the machine running the script**, then calls the reset endpoint. That's a deliberate choice, not an oversight: the API tier is stateless by design (see [Scaling and production notes](#scaling-and-production-notes)), so writing the backup file from inside the disposable API process instead would just vanish on the next deploy and give false confidence. Two caveats worth knowing before relying on it:
+
+- **Small race window.** The backup snapshot and the reset call are two separate round-trips, not one transaction - a purchase landing in between is wiped without being in the CSV. This is an ops safety net for an already dev/demo-only endpoint, not a durability guarantee.
+- **Only backs up anything with `STORE=redis`.** With the default `STORE=memory`, there is nothing outside the Node process to read, so the script says so and proceeds with the reset anyway rather than blocking on a copy it structurally cannot make.
 
 ## Testing
 

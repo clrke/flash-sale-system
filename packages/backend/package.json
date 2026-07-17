@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "stress": "tsx src/stress/run-stress.ts",
     "sale:end": "tsx src/cli/end-sale.ts",
-    "sale:revoke": "tsx src/cli/revoke-purchase.ts"
+    "sale:revoke": "tsx src/cli/revoke-purchase.ts",
+    "sale:reset": "tsx src/cli/reset-sale.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
