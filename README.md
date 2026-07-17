@@ -17,6 +17,7 @@ The whole design is organised around making those two invariants impossible to v
 - [Getting started](#getting-started)
 - [Configuration](#configuration)
 - [API reference](#api-reference)
+- [Exporting buyer data](#exporting-buyer-data)
 - [Testing](#testing)
 - [Stress test: how to run and what to expect](#stress-test-how-to-run-and-what-to-expect)
 - [Scaling and production notes](#scaling-and-production-notes)
@@ -212,6 +213,16 @@ Returns whether a user already holds a unit: `{ "userId": "alice", "secured": tr
 Testing/demo convenience: restarts the sale clock and refills stock back to `TOTAL_STOCK`, clearing every recorded buyer. Not part of the take-home brief and not wired up at all unless explicitly enabled (returns 404 otherwise) - it is unauthenticated, so leave it off for anything beyond local iteration or a live walkthrough.
 
 Body (optional): `{ "durationMs": 180000 }` - defaults to 3 minutes if omitted. Returns the same shape as `GET /api/sale/status`, or `400` for a non-positive `durationMs`.
+
+## Exporting buyer data
+
+There is no API endpoint that lists every buyer (see [Deliberate simplifications](#deliberate-simplifications)) - `userId` (which the brief treats as a plain username or email) is only queryable one-at-a-time via `GET /api/sale/secured`. When running with `STORE=redis`, the full buyer set is still recoverable directly from Redis, since every winning purchase is recorded in the `{prefix}:buyers` set (default prefix `flashsale`):
+
+```bash
+{ echo "userId"; redis-cli -u "${REDIS_URL:-redis://localhost:6379}" SMEMBERS flashsale:buyers; } > buyers.csv
+```
+
+This only works against the Redis store - with the default `STORE=memory` local dev mode, the buyer set lives inside the Node process and is not reachable from outside it. For routine, authenticated access to buyer data, add an admin endpoint or a durable orders table instead of relying on direct Redis access (see [Scaling and production notes](#scaling-and-production-notes) and the SQS/Lambda/durable-orders path in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)); this command is a stop-gap for local/ops use, not something to expose unauthenticated the way `/api/sale/reset` deliberately is not.
 
 ## Testing
 
